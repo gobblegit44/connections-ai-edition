@@ -1,26 +1,71 @@
 // --- AI Connections: Game Data ---
-const GROUPS = [
-  {
-    name: 'Types of Algorithms',
-    color: '#00ffe7',
-    words: ['Supervised', 'Unsupervised', 'Reinforcement', 'Self-Supervised']
-  },
-  {
-    name: 'Famous AI Tools',
-    color: '#ff00e7',
-    words: ['TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras']
-  },
-  {
-    name: 'Ethical Issues',
-    color: '#ffe700',
-    words: ['Bias', 'Transparency', 'Privacy', 'Accountability']
-  },
-  {
-    name: 'NN Layers',
-    color: '#00e7ff',
-    words: ['Convolutional', 'Dense', 'Dropout', 'Recurrent']
+let GROUPS = [];
+
+// --- Fetch daily AI word groups from Netlify Function ---
+async function fetchDailyAIWordGroups() {
+  try {
+    const res = await fetch('/.netlify/functions/generateWords');
+    const data = await res.json();
+    if (data.words && Array.isArray(data.words) && data.words.length === 4) {
+      // Each element: { group: 'Group Name', words: [4 words] }
+      GROUPS = data.words.map((g, i) => ({
+        name: g.group || `AI Group ${i + 1}`,
+        color: [
+          '#00ffe7', '#ff00e7', '#ffe700', '#00e7ff' // fallback colors
+        ][i % 4],
+        words: g.words
+      }));
+    } else {
+      // fallback to static words if API fails
+      GROUPS = [
+        {
+          name: 'Types of Algorithms',
+          color: '#00ffe7',
+          words: ['Supervised', 'Unsupervised', 'Reinforcement', 'Self-Supervised']
+        },
+        {
+          name: 'Famous AI Tools',
+          color: '#ff00e7',
+          words: ['TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras']
+        },
+        {
+          name: 'Ethical Issues',
+          color: '#ffe700',
+          words: ['Bias', 'Transparency', 'Privacy', 'Accountability']
+        },
+        {
+          name: 'NN Layers',
+          color: '#00e7ff',
+          words: ['Convolutional', 'Dense', 'Dropout', 'Recurrent']
+        }
+      ];
+    }
+  } catch (e) {
+    // fallback to static words if error
+    GROUPS = [
+      {
+        name: 'Types of Algorithms',
+        color: '#00ffe7',
+        words: ['Supervised', 'Unsupervised', 'Reinforcement', 'Self-Supervised']
+      },
+      {
+        name: 'Famous AI Tools',
+        color: '#ff00e7',
+        words: ['TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras']
+      },
+      {
+        name: 'Ethical Issues',
+        color: '#ffe700',
+        words: ['Bias', 'Transparency', 'Privacy', 'Accountability']
+      },
+      {
+        name: 'NN Layers',
+        color: '#00e7ff',
+        words: ['Convolutional', 'Dense', 'Dropout', 'Recurrent']
+      }
+    ];
   }
-];
+}
 
 // --- Shuffle and Prepare Tiles ---
 function shuffle(arr) {
@@ -31,7 +76,7 @@ function shuffle(arr) {
   return arr;
 }
 
-const tilesData = shuffle(GROUPS.flatMap((g, idx) => g.words.map(word => ({ word, group: idx }))));
+let tilesData = [];
 
 // --- DOM Elements ---
 const grid = document.getElementById('grid');
@@ -59,20 +104,12 @@ function renderGrid() {
   });
 }
 
-// --- Drag & Drop ---
-grid.addEventListener('dragover', e => e.preventDefault());
-grid.addEventListener('drop', e => {
-  e.preventDefault();
-  const idx = Number(e.dataTransfer.getData('text/plain'));
-  onTileClick(idx);
-});
-
-function onDragStart(e) {
-  e.dataTransfer.setData('text/plain', e.target.dataset.idx);
-  e.target.classList.add('dragging');
-}
-function onDragEnd(e) {
-  e.target.classList.remove('dragging');
+// --- Selection Update ---
+function updateSelection() {
+  Array.from(grid.children).forEach((tile, i) => {
+    tile.classList.toggle('selected', selectedTiles.includes(Number(tile.dataset.idx)));
+  });
+  grouped.innerHTML = selectedTiles.map(idx => `<span class="tile">${tilesData[idx].word}</span>`).join('');
 }
 
 // --- Tile Selection Logic ---
@@ -87,13 +124,6 @@ function onTileClick(idx) {
   if (selectedTiles.length === 4) {
     checkGroup();
   }
-}
-
-function updateSelection() {
-  Array.from(grid.children).forEach((tile, i) => {
-    tile.classList.toggle('selected', selectedTiles.includes(Number(tile.dataset.idx)));
-  });
-  grouped.innerHTML = selectedTiles.map(idx => `<span class="tile">${tilesData[idx].word}</span>`).join('');
 }
 
 // --- Group Validation ---
@@ -120,6 +150,14 @@ function checkGroup() {
     updateSelection();
   }
 }
+
+// --- Drag & Drop ---
+grid.addEventListener('dragover', e => e.preventDefault());
+grid.addEventListener('drop', e => {
+  e.preventDefault();
+  const idx = Number(e.dataTransfer.getData('text/plain'));
+  onTileClick(idx);
+});
 
 // --- Particle Effect (3js) ---
 let scene, camera, renderer, particleSystem;
@@ -157,10 +195,23 @@ function showParticles(color) {
   }
   animate();
 }
+function onDragStart(e) {
+  e.dataTransfer.setData('text/plain', e.target.dataset.idx);
+  e.target.classList.add('dragging');
+}
+function onDragEnd(e) {
+  e.target.classList.remove('dragging');
+}
 
 // --- Init ---
-renderGrid();
-updateSelection();
+(async function initGame() {
+  await fetchDailyAIWordGroups();
+  // Prepare and shuffle the 16 tiles, each with its group index
+  tilesData = shuffle(GROUPS.flatMap((g, idx) => g.words.map(word => ({ word, group: idx }))));
+  renderGrid();
+  updateSelection();
+})();
+
 window.addEventListener('resize', () => {
   if (renderer) renderer.setSize(grid.offsetWidth, grid.offsetHeight);
 });
