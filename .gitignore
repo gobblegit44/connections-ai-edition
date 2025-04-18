@@ -1,0 +1,10 @@
+# Node
+node_modules/
+.env
+.DS_Store
+*.log
+# Python server (local only)
+__pycache__/
+*.pyc
+# Netlify
+.netlify/
